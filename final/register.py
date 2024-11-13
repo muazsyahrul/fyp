@@ -1,58 +1,42 @@
 import cv2
 import os
 
-# Get Employee ID from user
+# Get employee ID input
 employee_id = input("Enter Employee ID: ")
 
-# Create a directory for the employee's dataset
+# Create the directory if it doesn't exist
 output_dir = f"dataset/{employee_id}/"
 os.makedirs(output_dir, exist_ok=True)
 
 # Initialize the webcam
-cap = cv2.VideoCapture(0)
-cv2.namedWindow("Face Registration", cv2.WINDOW_NORMAL)
-cv2.resizeWindow("Face Registration", 500, 300)
+cap = cv2.VideoCapture(0)  # Use 0 for USB camera
+
+cv2.namedWindow("Press Enter to start capturing 50 images", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Press Enter to start capturing 50 images", 500, 300)
 
 img_counter = 0
-max_images = 50  # Number of images to capture
 
-print("Press SPACEBAR to start capturing images...")
+print("Press Enter to start capturing...")
+input()  # Wait for Enter key press to start capturing
 
-# Wait until SPACEBAR is pressed to start capturing
-while True:
+while img_counter < 50:
+    # Capture frame from the webcam
     ret, frame = cap.read()
     if not ret:
         print("Failed to grab frame")
         break
 
-    # Show preview
-    cv2.putText(frame, "Press SPACEBAR to start capturing", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-    cv2.imshow("Face Registration", frame)
-
-    # Wait for SPACEBAR to start capturing images
-    if cv2.waitKey(1) % 256 == 32:  # SPACEBAR key
-        print("Starting image capture...")
-        break
-
-# Start capturing images
-while img_counter < max_images:
-    ret, frame = cap.read()
-    if not ret:
-        print("Failed to grab frame")
-        break
-
+    # Save the frame as an image
     img_name = f"{output_dir}/image_{img_counter}.jpg"
     cv2.imwrite(img_name, frame)
     print(f"{img_name} written!")
     img_counter += 1
 
-    # Display the current image count on the frame
-    cv2.putText(frame, f"Capturing Image {img_counter}/{max_images}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-    cv2.imshow("Face Registration", frame)
-    cv2.waitKey(100)  # Small delay for better visibility of captured frame
-
-print("Face registration complete.")
+    # Show the frame to the user
+    cv2.imshow("Press Enter to start capturing 50 images", frame)
+    cv2.waitKey(100)  # Capture every 100ms for a slight delay
 
 # Release resources and close windows
 cap.release()
 cv2.destroyAllWindows()
+print("50 images captured successfully.")
