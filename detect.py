@@ -1,71 +1,57 @@
 import cv2
 import face_recognition
 import pickle
-import os
 import mysql.connector
 from datetime import datetime
 
-def load_encodings():
-    encodings = []
-    for filename in os.listdir("encodings"):
-        if filename.endswith(".pkl"):
-            with open(os.path.join("encodings", filename), "rb") as file:
-                encodings.append(pickle.load(file))
-    return encodings
+# Load registered faces
+with open("employee_faces.pkl", "rb") as f:
+    known_face_data = pickle.load(f)
 
-def log_recognition(name):
-    # Database connection
-    connection = mysql.connector.connect(
-        host="your_server_ip",
-        user="your_username",
-        password="your_password",
-        database="your_database"
-    )
-    cursor = connection.cursor()
-    
-    # Insert log into database
-    query = "INSERT INTO face_logs (name) VALUES (%s)"
-    cursor.execute(query, (name,))
-    connection.commit()
-    cursor.close()
-    connection.close()
+# Connect to MySQL database on your server
+db_connection = mysql.connector.connect(
+    host="YOUR_SERVER_IP",
+    user="YOUR_DB_USER",
+    password="YOUR_DB_PASSWORD",
+    database="YOUR_DATABASE_NAME"
+)
+cursor = db_connection.cursor()
 
-def recognize_face():
-    known_faces = load_encodings()
-    
-    # Initialize camera
-    cap = cv2.VideoCapture(0)
+# Initialize USB camera
+video_capture = cv2.VideoCapture(0)
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to capture image")
-            break
+while True:
+    # Capture frame
+    ret, frame = video_capture.read()
+    if not ret:
+        print("Failed to capture image.")
+        break
 
-        # Detect and encode faces in the frame
-        face_locations = face_recognition.face_locations(frame)
-        face_encodings = face_recognition.face_encodings(frame, face_locations)
+    # Detect faces in frame
+    face_locations = face_recognition.face_locations(frame)
+    face_encodings = face_recognition.face_encodings(frame, face_locations)
 
-        for face_encoding in face_encodings:
-            matches = face_recognition.compare_faces(
-                [enc["encoding"] for enc in known_faces], face_encoding
-            )
-            name = "Unknown"
-            
-            # If a match is found
+    for face_encoding in face_encodings:
+        # Compare with registered faces
+        for emp_id, known_encoding in known_face_data.items():
+            matches = face_recognition.compare_faces([known_encoding], face_encoding)
             if True in matches:
-                match_index = matches.index(True)
-                name = known_faces[match_index]["name"]
+                # Mark attendance
+                timestamp = datetime.now()
+                sql = "INSERT INTO attendance (employee_id, date, time) VALUES (%s, %s, %s)"
+                values = (emp_id, timestamp.date(), timestamp.time())
+                cursor.execute(sql, values)
+                db_connection.commit()
+                print(f"Attendance marked for Employee ID: {emp_id}")
+                break
 
-                # Log recognition
-                log_recognition(name)
-                print(f"{datetime.now()}: Recognized {name}")
+    # Display the video
+    cv2.imshow("Face Recognition", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-        # Press 'q' to quit
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-recognize_face()
+# Cleanup
+video_capture.release()
+cv2.destroyAllWindows()
+cursor.close()
+db_connection.close()
