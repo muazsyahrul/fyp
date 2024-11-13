@@ -1,36 +1,38 @@
 import face_recognition
 import pickle
 import cv2
-import pymysql
+import mysql.connector
 import time
 
-currentname = "unknown"
+# Load encodings and detector
 encodingsP = "encodings.pickle"
 cascade = "haarcascade_frontalface_default.xml"
 data = pickle.loads(open(encodingsP, "rb").read())
 detector = cv2.CascadeClassifier(cascade)
 
-cap = cv2.VideoCapture(0)
-time.sleep(2.0)
-
-# Database connection
-db = pymysql.connect(
-    host="192.168.137.1",
-    user="root",
-    password="",
-    database="apsystem"
+# Connect to MySQL database
+db = mysql.connector.connect(
+    host="your_server_ip",
+    user="your_username",
+    password="your_password",
+    database="your_database"
 )
 cursor = db.cursor()
+
+cap = cv2.VideoCapture(0)
+time.sleep(2.0)
 
 while True:
     ret, frame = cap.read()
     if not ret:
-        print("[ERROR] Couldn't grab frame")
+        print("[ERROR] Couldn't grab frame from webcam")
         break
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    rects = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE)
+
+    rects = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30),
+                                      flags=cv2.CASCADE_SCALE_IMAGE)
     boxes = [(y, x + w, y + h, x) for (x, y, w, h) in rects]
     encodings = face_recognition.face_encodings(rgb, boxes)
     names = []
@@ -48,19 +50,11 @@ while True:
                 counts[name] = counts.get(name, 0) + 1
 
             name = max(counts, key=counts.get)
-            if currentname != name:
-                currentname = name
-                print(f"Recognized: {currentname}")
-
-                # Update attendance in the MySQL database
-                try:
-                    sql = "INSERT INTO attendance (employee_id, time) VALUES (%s, NOW())"
-                    cursor.execute(sql, (currentname,))
-                    db.commit()
-                    print(f"Attendance updated for {currentname}")
-                except pymysql.MySQLError as e:
-                    print(f"Error updating attendance: {e}")
-                    db.rollback()
+            
+            # Update attendance in database if recognized
+            cursor.execute("INSERT INTO attendance (employee_id, date_time) VALUES (%s, NOW())", (name,))
+            db.commit()
+            print(f"Attendance recorded for {name}")
 
         names.append(name)
 
@@ -68,13 +62,13 @@ while True:
         color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
         cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
         y = top - 15 if top - 15 > 15 else top + 15
-        cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2)
+        cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, .8, color, 2)
 
-    cv2.imshow("Face Recognition", frame)
-
+    cv2.imshow("Facial Recognition", frame)
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 cap.release()
 cv2.destroyAllWindows()
+cursor.close()
 db.close()
