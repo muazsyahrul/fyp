@@ -9,8 +9,8 @@ knownNames = []
 
 print("[INFO] Start processing faces...")
 
-for employee_id in os.listdir(dataset_dir):
-    person_dir = os.path.join(dataset_dir, employee_id)
+for name in os.listdir(dataset_dir):
+    person_dir = os.path.join(dataset_dir, name)
     if not os.path.isdir(person_dir):
         continue
 
@@ -28,12 +28,10 @@ for employee_id in os.listdir(dataset_dir):
 
         for encoding in encodings:
             knownEncodings.append(encoding)
-            knownNames.append(employee_id)
+            knownNames.append(name)
 
 print("[INFO] Serializing encodings...")
 data = {"encodings": knownEncodings, "names": knownNames}
 with open("encodings.pickle", "wb") as f:
     f.write(pickle.dumps(data))
-
-cv2.destroyAllWindows()
-print("Model training complete.")
+print("Training completed.")
