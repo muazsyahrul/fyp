@@ -1,45 +1,40 @@
 import cv2
 import face_recognition
 import pickle
-import os
 
-def register_face():
-    # Initialize camera
-    cap = cv2.VideoCapture(0)
+# Initialize USB camera
+video_capture = cv2.VideoCapture(0)
 
-    print("Enter your name:")
-    name = input("Name: ").strip()
-    
-    if not name:
-        print("Name cannot be empty")
-        return
+# Dictionary to store face encodings with Employee IDs
+face_data = {}
 
-    # Capture a frame
-    ret, frame = cap.read()
+while True:
+    emp_id = input("Enter Employee ID: ")
+
+    # Capture frame
+    ret, frame = video_capture.read()
     if not ret:
-        print("Failed to capture image")
-        return
+        print("Failed to capture image.")
+        break
 
-    # Detect and encode face
+    # Detect face and encode
     face_locations = face_recognition.face_locations(frame)
-    face_encodings = face_recognition.face_encodings(frame, face_locations)
+    if face_locations:
+        face_encodings = face_recognition.face_encodings(frame, face_locations)
 
-    if len(face_encodings) == 0:
+        # Save the encoding with the Employee ID
+        face_data[emp_id] = face_encodings[0]
+        print(f"Registered face for Employee ID: {emp_id}")
+
+        # Save to a file
+        with open("employee_faces.pkl", "wb") as f:
+            pickle.dump(face_data, f)
+        print("Face data saved.")
+    else:
         print("No face detected. Try again.")
-        return
 
-    # Save the face encoding with name
-    encoding_data = {"name": name, "encoding": face_encodings[0]}
-    with open(f"encodings/{name}.pkl", "wb") as file:
-        pickle.dump(encoding_data, file)
+    # Exit after registration
+    break
 
-    print(f"Face registered for {name}.")
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-# Ensure encoding folder exists
-if not os.path.exists("encodings"):
-    os.makedirs("encodings")
-
-register_face()
+video_capture.release()
+cv2.destroyAllWindows()
