@@ -18,6 +18,7 @@ print("[INFO] Loading encodings + face detector...")
 data = pickle.loads(open("encodings.pickle", "rb").read())
 detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
+# Initialize the video stream
 cap = cv2.VideoCapture(0)
 time.sleep(2.0)  # Allow the camera to warm up
 
@@ -30,6 +31,7 @@ while True:
         print("[ERROR] Couldn't grab frame from webcam")
         break
 
+    # Convert the frame for face detection and recognition
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
@@ -43,21 +45,25 @@ while True:
     encodings = face_recognition.face_encodings(rgb, boxes)
     names = []
 
+    # Loop over each detected face's encoding
     for encoding in encodings:
         matches = face_recognition.compare_faces(data["encodings"], encoding)
-        name = "Unknown"
-        
+        name = "Unknown"  # Default to "Unknown" if no match
+
+        # Check if a match was found
         if True in matches:
             matchedIdxs = [i for (i, b) in enumerate(matches) if b]
             counts = {}
 
+            # Count each matched ID
             for i in matchedIdxs:
                 name = data["names"][i]
                 counts[name] = counts.get(name, 0) + 1
 
+            # Determine the recognized face with the most matches
             name = max(counts, key=counts.get)
 
-            # Update attendance only if the employee ID hasn't been recorded in this session
+            # Update attendance if the ID hasn't been recorded yet in this session
             if name not in recorded_ids:
                 cursor.execute(
                     "INSERT INTO attendance (employee_id, timestamp) VALUES (%s, NOW())",
@@ -65,10 +71,11 @@ while True:
                 )
                 conn.commit()
                 print(f"[INFO] Attendance updated for employee ID: {name}")
-                recorded_ids.add(name)  # Mark this ID as recorded in the session
+                recorded_ids.add(name)  # Add ID to recorded set
 
         names.append(name)
 
+    # Draw rectangles and labels for each recognized face
     for ((top, right, bottom, left), name) in zip(boxes, names):
         # Draw a green rectangle around each detected face
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
@@ -78,7 +85,7 @@ while True:
         y = top - 10 if top - 10 > 10 else top + 10
         cv2.putText(frame, label, (left, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-        # Display "Attendance updated" below the face if attendance was updated for this name
+        # Display "Attendance updated" below the face if attendance was updated
         if name in recorded_ids:
             cv2.putText(frame, "Attendance updated", (left, bottom + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
