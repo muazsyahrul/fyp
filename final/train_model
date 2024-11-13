@@ -1,0 +1,39 @@
+import face_recognition
+import pickle
+import cv2
+import os
+
+dataset_dir = "dataset"
+knownEncodings = []
+knownNames = []
+
+print("[INFO] Start processing faces...")
+
+for employee_id in os.listdir(dataset_dir):
+    person_dir = os.path.join(dataset_dir, employee_id)
+    if not os.path.isdir(person_dir):
+        continue
+
+    for img_name in os.listdir(person_dir):
+        image_path = os.path.join(person_dir, img_name)
+        print(f"[INFO] Processing {image_path}...")
+
+        image = cv2.imread(image_path)
+        if image is None:
+            continue
+
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        boxes = face_recognition.face_locations(rgb, model="hog")
+        encodings = face_recognition.face_encodings(rgb, boxes)
+
+        for encoding in encodings:
+            knownEncodings.append(encoding)
+            knownNames.append(employee_id)
+
+print("[INFO] Serializing encodings...")
+data = {"encodings": knownEncodings, "names": knownNames}
+with open("encodings.pickle", "wb") as f:
+    f.write(pickle.dumps(data))
+
+cv2.destroyAllWindows()
+print("Model training complete.")
