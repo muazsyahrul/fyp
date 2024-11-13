@@ -3,6 +3,7 @@ import pickle
 import cv2
 import time
 import mysql.connector
+from datetime import datetime
 
 # MySQL connection setup
 conn = mysql.connector.connect(
@@ -65,11 +66,18 @@ while True:
 
             # Update attendance if the ID hasn't been recorded yet in this session
             if name not in recorded_ids:
-                cursor.execute(
-                    "INSERT INTO attendance (employee_id, timestamp) VALUES (%s, NOW())",
-                    (name,)
-                )
+                # Prepare data for insertion
+                current_date = datetime.now().date()
+                current_time_in = datetime.now().time()
+
+                # Insert data into MySQL attendance table
+                sql_insert = """
+                    INSERT INTO attendance (id, employee_id, date, time_in, status, time_out, num_hr)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql_insert, (name, name, current_date, current_time_in, 1, None, None))
                 conn.commit()
+
                 print(f"[INFO] Attendance updated for employee ID: {name}")
                 recorded_ids.add(name)  # Add ID to recorded set
 
@@ -92,9 +100,8 @@ while True:
     # Display the frame
     cv2.imshow("Facial Recognition - Attendance System", frame)
 
-    # Exit the loop if 'q' is pressed
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord("q"):
+    # Wait for 'q' to quit, keep displaying until 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 # Cleanup
