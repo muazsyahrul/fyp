@@ -8,7 +8,7 @@ import mysql.connector
 conn = mysql.connector.connect(
     host="192.168.137.1",
     user="root",
-    password="",
+    password="",  # No password
     database="apsystem"
 )
 cursor = conn.cursor()
@@ -21,6 +21,9 @@ detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 cap = cv2.VideoCapture(0)
 time.sleep(2.0)  # Allow the camera to warm up
 
+# Set to keep track of already recorded IDs within the session
+recorded_ids = set()
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -30,10 +33,13 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
+    # Detect faces in the grayscale frame
     rects = detector.detectMultiScale(gray, scaleFactor=1.1, 
                                       minNeighbors=5, minSize=(30, 30),
                                       flags=cv2.CASCADE_SCALE_IMAGE)
+    # Convert bounding boxes to (top, right, bottom, left) format
     boxes = [(y, x + w, y + h, x) for (x, y, w, h) in rects]
+    # Compute facial embeddings for each detected face
     encodings = face_recognition.face_encodings(rgb, boxes)
     names = []
 
@@ -44,30 +50,39 @@ while True:
         if True in matches:
             matchedIdxs = [i for (i, b) in enumerate(matches) if b]
             counts = {}
-            
+
             for i in matchedIdxs:
                 name = data["names"][i]
                 counts[name] = counts.get(name, 0) + 1
 
             name = max(counts, key=counts.get)
 
-            # Update attendance in the database
-            cursor.execute(
-                "INSERT INTO attendance (employee_id, timestamp) VALUES (%s, NOW())",
-                (name,)
-            )
-            conn.commit()
-            print(f"[INFO] Attendance updated for employee ID: {name}")
+            # Update attendance only if the employee ID hasn't been recorded in this session
+            if name not in recorded_ids:
+                cursor.execute(
+                    "INSERT INTO attendance (employee_id, timestamp) VALUES (%s, NOW())",
+                    (name,)
+                )
+                conn.commit()
+                print(f"[INFO] Attendance updated for employee ID: {name}")
+                recorded_ids.add(name)  # Mark this ID as recorded in the session
 
         names.append(name)
 
     for ((top, right, bottom, left), name) in zip(boxes, names):
+        # Draw a green rectangle around each detected face
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
         y = top - 15 if top - 15 > 15 else top + 15
         cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
 
-    cv2.imshow("Facial Recognition", frame)
+        # Display "Attendance updated" if attendance was updated for this name
+        if name in recorded_ids:
+            cv2.putText(frame, "Attendance updated", (left, bottom + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
+    # Display the frame
+    cv2.imshow("Facial Recognition - Attendance System", frame)
+
+    # Exit the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
