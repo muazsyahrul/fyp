@@ -1,0 +1,21 @@
+import mysql.connector
+from mysql.connector import Error
+
+try:
+    connection = mysql.connector.connect(
+        host="localhost",          # Replace with your host
+        user="root",                # Replace with your MySQL username
+        password="YOUR_PASSWORD",   # Replace with your MySQL password
+        database="YOUR_DATABASE"    # Replace with your database name
+    )
+
+    if connection.is_connected():
+        print("Connected to MySQL database")
+
+except Error as e:
+    print(f"Error: {e}")
+
+finally:
+    if connection.is_connected():
+        connection.close()
+        print("MySQL connection is closed")
