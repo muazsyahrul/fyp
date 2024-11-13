@@ -1,74 +1,36 @@
-import face_recognition
-import pickle
 import cv2
-import mysql.connector
-import time
+import os
 
-# Load encodings and detector
-encodingsP = "encodings.pickle"
-cascade = "haarcascade_frontalface_default.xml"
-data = pickle.loads(open(encodingsP, "rb").read())
-detector = cv2.CascadeClassifier(cascade)
+# Prompt for employee ID
+employee_id = input("Enter Employee ID: ")
 
-# Connect to MySQL database
-db = mysql.connector.connect(
-    host="your_server_ip",
-    user="your_username",
-    password="your_password",
-    database="your_database"
-)
-cursor = db.cursor()
+# Create a directory for the employee if it doesn't exist
+output_dir = f"dataset/{employee_id}/"
+os.makedirs(output_dir, exist_ok=True)
 
-cap = cv2.VideoCapture(0)
-time.sleep(2.0)
+# Initialize the webcam
+cap = cv2.VideoCapture(0)  # 0 is typically the default webcam
+img_counter = 0
 
-while True:
+print("Press Enter to start capturing images...")
+input()  # Wait for Enter key
+
+# Capture 50 images
+while img_counter < 50:
     ret, frame = cap.read()
     if not ret:
-        print("[ERROR] Couldn't grab frame from webcam")
+        print("Failed to grab frame")
         break
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    cv2.imshow("Capturing Face", frame)
+    img_name = f"{output_dir}/image_{img_counter}.jpg"
+    cv2.imwrite(img_name, frame)
+    print(f"{img_name} written!")
+    img_counter += 1
 
-    rects = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30),
-                                      flags=cv2.CASCADE_SCALE_IMAGE)
-    boxes = [(y, x + w, y + h, x) for (x, y, w, h) in rects]
-    encodings = face_recognition.face_encodings(rgb, boxes)
-    names = []
+    # Display for a short time to avoid too-fast capture
+    cv2.waitKey(100)
 
-    for encoding in encodings:
-        matches = face_recognition.compare_faces(data["encodings"], encoding)
-        name = "Unknown"
-
-        if True in matches:
-            matchedIdxs = [i for (i, b) in enumerate(matches) if b]
-            counts = {}
-
-            for i in matchedIdxs:
-                name = data["names"][i]
-                counts[name] = counts.get(name, 0) + 1
-
-            name = max(counts, key=counts.get)
-            
-            # Update attendance in database if recognized
-            cursor.execute("INSERT INTO attendance (employee_id, date_time) VALUES (%s, NOW())", (name,))
-            db.commit()
-            print(f"Attendance recorded for {name}")
-
-        names.append(name)
-
-    for ((top, right, bottom, left), name) in zip(boxes, names):
-        color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
-        cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-        y = top - 15 if top - 15 > 15 else top + 15
-        cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, .8, color, 2)
-
-    cv2.imshow("Facial Recognition", frame)
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
-
+print("Face registration complete.")
 cap.release()
 cv2.destroyAllWindows()
-cursor.close()
-db.close()
