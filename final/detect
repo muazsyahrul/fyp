@@ -64,8 +64,15 @@ while True:
             # Determine the recognized face with the most matches
             name = max(counts, key=counts.get)
 
+            # Ensure name is treated as an integer (employee_id)
+            try:
+                employee_id = int(name)  # Ensure name is cast to int (if name is a valid employee ID)
+            except ValueError:
+                print(f"[ERROR] Invalid employee ID: {name}")
+                continue
+
             # Update attendance if the ID hasn't been recorded yet in this session
-            if name not in recorded_ids:
+            if employee_id not in recorded_ids:
                 # Prepare data for insertion
                 current_date = datetime.now().date()
                 current_time_in = datetime.now().time()
@@ -75,11 +82,11 @@ while True:
                     INSERT INTO attendance (id, employee_id, date, time_in, status, time_out, num_hr)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
-                cursor.execute(sql_insert, (name, name, current_date, current_time_in, 1, None, None))
+                cursor.execute(sql_insert, (employee_id, employee_id, current_date, current_time_in, 1, None, None))
                 conn.commit()
 
-                print(f"[INFO] Attendance updated for employee ID: {name}")
-                recorded_ids.add(name)  # Add ID to recorded set
+                print(f"[INFO] Attendance updated for employee ID: {employee_id}")
+                recorded_ids.add(employee_id)  # Add ID to recorded set
 
         names.append(name)
 
