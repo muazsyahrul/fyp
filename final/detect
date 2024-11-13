@@ -72,10 +72,13 @@ while True:
     for ((top, right, bottom, left), name) in zip(boxes, names):
         # Draw a green rectangle around each detected face
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-        y = top - 15 if top - 15 > 15 else top + 15
-        cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+        
+        # Display the employee ID above the face
+        label = f"ID: {name}" if name != "Unknown" else name
+        y = top - 10 if top - 10 > 10 else top + 10
+        cv2.putText(frame, label, (left, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-        # Display "Attendance updated" if attendance was updated for this name
+        # Display "Attendance updated" below the face if attendance was updated for this name
         if name in recorded_ids:
             cv2.putText(frame, "Attendance updated", (left, bottom + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
@@ -83,9 +86,11 @@ while True:
     cv2.imshow("Facial Recognition - Attendance System", frame)
 
     # Exit the loop if 'q' is pressed
-    if cv2.waitKey(1) & 0xFF == ord("q"):
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("q"):
         break
 
+# Cleanup
 cap.release()
 cv2.destroyAllWindows()
 cursor.close()
