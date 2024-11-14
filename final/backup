@@ -1,0 +1,74 @@
+import face_recognition
+import pickle
+import cv2
+import time
+
+# Load encodings and Haar Cascade
+print("[INFO] Loading encodings + face detector...")
+data = pickle.loads(open("encodings.pickle", "rb").read())
+detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+
+# Initialize the video stream
+cap = cv2.VideoCapture(0)
+time.sleep(2.0)  # Allow the camera to warm up
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("[ERROR] Couldn't grab frame from webcam")
+        break
+
+    # Convert the frame for face detection and recognition
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+    # Detect faces in the grayscale frame
+    rects = detector.detectMultiScale(gray, scaleFactor=1.1, 
+                                      minNeighbors=5, minSize=(30, 30),
+                                      flags=cv2.CASCADE_SCALE_IMAGE)
+    # Convert bounding boxes to (top, right, bottom, left) format
+    boxes = [(y, x + w, y + h, x) for (x, y, w, h) in rects]
+    # Compute facial embeddings for each detected face
+    encodings = face_recognition.face_encodings(rgb, boxes)
+    names = []
+
+    # Loop over each detected face's encoding
+    for encoding in encodings:
+        matches = face_recognition.compare_faces(data["encodings"], encoding)
+        name = "Unknown"  # Default to "Unknown" if no match
+
+        # Check if a match was found
+        if True in matches:
+            matchedIdxs = [i for (i, b) in enumerate(matches) if b]
+            counts = {}
+
+            # Count each matched ID
+            for i in matchedIdxs:
+                name = data["names"][i]
+                counts[name] = counts.get(name, 0) + 1
+
+            # Determine the recognized face with the most matches
+            name = max(counts, key=counts.get)
+
+        names.append(name)
+
+    # Draw rectangles and labels for each recognized face
+    for ((top, right, bottom, left), name) in zip(boxes, names):
+        # Draw a green rectangle around each detected face
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+        
+        # Display the employee ID above the face
+        label = f"ID: {name}" if name != "Unknown" else name
+        y = top - 10 if top - 10 > 10 else top + 10
+        cv2.putText(frame, label, (left, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+    # Display the frame
+    cv2.imshow("Facial Recognition", frame)
+
+    # Wait for 'q' to quit, keep displaying until 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord("q"):
+        break
+
+# Cleanup
+cap.release()
+cv2.destroyAllWindows()
